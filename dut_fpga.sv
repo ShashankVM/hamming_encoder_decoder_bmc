@@ -9,6 +9,7 @@ module dut_fpga
    )
   (
   input logic clk,
+              reset,
               error_inject,
   input logic [3:0] message,
   input logic [2:0] error_pos1,
@@ -18,6 +19,7 @@ module dut_fpga
                [2:0] error_pos1_out,
                [2:0] error_pos2_out,
          logic error_inject_out,
+               reset_out,
                error_det,
   output logic [NUM_SEGMENTS-1:0] anode,
   output logic [7:0] cathode
@@ -42,7 +44,7 @@ logic [NUM_SEGMENTS-1:0]            digit_point;
     end
   endgenerate
 
-  dut u_dut(.clk(clk_50), .reset(1'b0), .*);
+  dut u_dut(.clk(clk_50), .*);
 
  seven_segment
     #
@@ -59,29 +61,40 @@ logic [NUM_SEGMENTS-1:0]            digit_point;
      .cathode      (cathode)
      );
 
-  always_ff @(posedge clk_50)
-    if (encoder_ready) tx_message       <= tx;
+  always_ff @(posedge clk_50 or posedge reset)
+    if (reset)              tx_message       <= 'b0;
+    else if (encoder_ready) tx_message       <= tx;
      
 always_comb begin
     if (encoder_ready && rx_valid)
       tx_final = tx;
     else
       tx_final = tx_message;
+    encoded[2]  <= '0;
+    encoded[3]  <= '0;
+    encoded[6]  <= '0;
+    encoded[7]  <= '0;
   end
 
-always @(posedge clk_50) begin
+always @(posedge clk_50 or posedge reset) begin
        digit_point <= '1;
-       if (rx_valid) begin
+       if (reset) begin
+         encoded[0]  <= 'b0;
+         encoded[1]  <= 'b0;
+         encoded[4]  <= 'b0;
+         encoded[5]  <= 'b0;
+       end
+       else if (rx_valid) begin
          encoded[0]  <= rx[3:0];
          encoded[1]  <= {1'b0, rx[6:4]};
-         digit_point <= '1;
        end
-       if (tx_valid) begin
+       else if (tx_valid) begin
          encoded[4]  <= tx_final[3:0];
          encoded[5]  <= {1'b0, tx_final[6:4]};
        end
-end
+     end
 
+assign reset_out    = reset;
 assign message_out  = message;
 assign error_inject_out = error_inject;
 assign error_pos1_out = error_pos1;
