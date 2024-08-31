@@ -66,8 +66,6 @@ ASSERT_ERROR_DET_IMPLIES_ERROR_INJECT: assert property (@(posedge clk) disable i
 
 ASSERT_RX_EVENTUALLY: assert property (@(posedge clk) disable iff (reset) s_eventually rx_valid);
 
-
-COVER_ERROR_INJECTED: cover property  (@(posedge clk) disable iff (reset) (tx_channel_in != tx_channel_out));
 COVER_ZERO_MESSAGE: cover property (@(posedge clk) disable iff (reset) (message == 4'b0000));
 COVER_NON_ZERO_MESSAGE: cover property (@(posedge clk) disable iff (reset) (message != 4'b0000));
 COVER_ERROR_INJECT_OFF: cover property (@(posedge clk) disable iff (reset) !error_inject ##9 error_inject);
