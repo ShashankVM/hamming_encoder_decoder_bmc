@@ -16,6 +16,7 @@ module dut(
         channel_valid_out,
         channel_out;
 
+
   cc_encoder cc_encoder_inst( .clk(clk), .reset(reset), .code_in(message), .ready(encoder_ready), .valid(tx_valid), .code_out(code_out_encoded) );
 
   channel    channel_inst( .clk(clk), .reset(reset), .valid_in(tx_valid), .channel_in(code_out_encoded), .valid_out(channel_valid_out), .error_inject(error_inject), .error_pos1(error_pos1), .error_pos2(error_pos2), .channel_out(channel_out) );
@@ -53,20 +54,28 @@ ASSUME_STABLE_ERROR_POSITION2: assume property (@(posedge clk) disable iff (rese
 ASSUME_VALID_ERROR_POSITION1: assume property (@(posedge clk) disable iff (reset) error_pos1 < 3'd7);
 ASSUME_VALID_ERROR_POSITION2: assume property (@(posedge clk) disable iff (reset) error_pos2 < 3'd7);
 
-ASSERT_RX_EQUAL_TX: assert property (@(posedge clk) disable iff (reset) rx_valid && ($past(error_pos1) == $past(error_pos2)) |-> (tx_final == rx));
+ASSERT_RX_EQUAL_TX_NO_INJECTION: assert property (@(posedge clk) disable iff (reset) rx_valid && !error_inject_reg |-> (tx_final == rx));
+ASSERT_RX_EQUAL_TX_SINGLE_ERROR_WITH_INJECTION: assert property (@(posedge clk) disable iff (reset) rx_valid && ($past(error_pos1) == $past(error_pos2)) && error_inject_reg |-> (tx_final == rx));
+ASSERT_RX_NOT_EQUAL_TX_FOR_DOUBLE_ERROR: assert property (@(posedge clk) disable iff (reset) rx_valid && ($past(error_pos1) != $past(error_pos2)) && error_inject_reg |-> (tx_final != rx));
+
+ASSERT_ENCODER_LATENCY: assert property (@(posedge clk) disable iff (reset) $rose(encoder_ready) |-> ##7 encoder_ready);
+ASSERT_DECODER_LATENCY: assert property (@(posedge clk) disable iff (reset) $rose(rx_valid) |-> ##7 rx_valid);
+
 ASSERT_ERROR_DET_IF_ERROR_INJECT: assert property (@(posedge clk) disable iff (reset) rx_valid && error_inject_reg |-> error_det);
-ASSERT_RX_VALID: assert property (@(posedge clk) disable iff (reset) $rose(encoder_ready) |-> rx_valid);
-ASSERT_ERROR_DET_IF_NO_ERROR_INJECT: assert property (@(posedge clk) disable iff (reset) rx_valid && (error_inject_reg == 1'b0) |-> error_det);
-//COVER_ERROR_INJECT_OFF: cover property (@(posedge clk) disable iff (reset) !error_inject ##9 error_inject);
+ASSERT_ERROR_DET_IMPLIES_ERROR_INJECT: assert property (@(posedge clk) disable iff (reset) error_det |-> error_inject_reg);
+
 ASSERT_RX_EVENTUALLY: assert property (@(posedge clk) disable iff (reset) s_eventually rx_valid);
-ASSERT_RX_EQUAL_T_EVENTUALLY: assert property (@(posedge clk) disable iff (reset) s_eventually (tx_final != rx));
-ASSERT_ERROR_DET_EVENTUALLY: assert property (@(posedge clk) disable iff (reset) s_eventually error_det);
-ASSERT_LATENCY_RX_VALID: assert property (@(posedge clk) disable iff (reset) encoder_ready ##10 encoder_ready);
-COVER_RX_VALID: cover property (@(posedge clk) disable iff (reset) (message == 4'b0000));
+
+
+COVER_ERROR_INJECTED: cover property  (@(posedge clk) disable iff (reset) (tx_channel_in != tx_channel_out));
+COVER_ZERO_MESSAGE: cover property (@(posedge clk) disable iff (reset) (message == 4'b0000));
+COVER_NON_ZERO_MESSAGE: cover property (@(posedge clk) disable iff (reset) (message != 4'b0000));
+COVER_ERROR_INJECT_OFF: cover property (@(posedge clk) disable iff (reset) !error_inject ##9 error_inject);
+COVER_ERROR_DET: cover property (@(posedge clk) disable iff (reset) error_det);
 //COVER_ERROR_INJECT_ON_ERROR_CORRECTION: cover property ((error_pos1 == error_pos2) throughout error_inject [*8] );
-//COVER_ERROR_INJECT_ON_ERROR_DETECTION: cover property ((error_pos1 != error_pos2) throughout  error_inject [*8] );
-//COVER_NO_VACUOUS_PASS: cover property (@(posedge clk) disable iff (reset) rx_valid && error_inject && (error_pos1 == error_pos2));
+////COVER_ERROR_INJECT_ON_ERROR_DETECTION: cover property ((error_pos1 != error_pos2) throughout  error_inject [*8] );
+COVER_NO_VACUOUS_PASS: cover property (@(posedge clk) disable iff (reset) rx_valid && error_inject_reg && (error_pos1 == error_pos2) && (tx_final == rx));
 //COVER_ERROR_INJECT_ON_TWO_CYCLES: cover property (error_inject [*16] );
-//COVER_TWO_DIFFERENT_NON_ZERO_MESSAGES_WITH_ERROR: cover property (@(posedge clk) disable iff (reset) (error_pos1 == error_pos2) throughout (error_inject && (message == 4'b1001) && (error_pos1 == 3'b101) ##8 error_inject && (message == 4'b1010) && (error_pos1 == 3'b110) ##8 message == 4'b0000));
+// COVER_TWO_DIFFERENT_NON_ZERO_MESSAGES_WITH_ERROR: cover property (@(posedge clk) disable iff (reset) (error_pos1 == error_pos2) throughout (error_inject && (message == 4'b1001) && (error_pos1 == 3'b101) ##8 error_inject && (message == 4'b1010) && (error_pos1 == 3'b110) ##8 message == 4'b0000));
 `endif
 endmodule
