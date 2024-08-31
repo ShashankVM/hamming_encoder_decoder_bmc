@@ -6,7 +6,7 @@
                valid,
                code_out);
 
-  logic [2:0] cycle, lfsr_reg;
+  logic [2:0] lfsr_reg;
   logic piso_load, piso_out;
   logic [3:0] piso_in;
 
@@ -62,9 +62,5 @@
     valid = !reset;
     code_out = piso_out;
   end
-
-`ifdef FORMAL
-  // assume property (next < 3'h7);
-`endif
 
 endmodule
